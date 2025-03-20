@@ -1,0 +1,52 @@
+name: pollora
+help: CLI tool for managing Pollora framework projects
+version: 0.1.0
+
+environment_variables:
+  - name: DEBUG
+    help: Set to enable debug mode
+
+commands:
+  - name: create
+    help: Create a new Pollora project
+    args:
+      - name: project_name
+        help: Name of the project to create
+        required: true
+    flags:
+      - long: --site-name
+        arg: name
+        help: The site name for DDEV (defaults to project-name)
+      - long: --docroot
+        arg: dir
+        default: public
+        help: The document root for DDEV (defaults to 'public')
+      - long: --no-rewrite
+        help: Skip setting up the WordPress permalink structure
+
+  - name: status
+    help: Show status information about the current Pollora project
+    flags:
+      - long: --detailed
+        help: Show detailed information about the project
+
+  - name: self-update
+    help: Update the Pollora CLI to the latest version
+    flags:
+      - long: --force
+        help: Force update even if already on latest version
+      - long: --check-only
+        help: Only check for updates without installing
+      - long: --version
+        arg: version
+        help: Install a specific version (tag)
+      - long: --debug
+        help: Show debug information during update
+
+  - name: uninstall
+    help: Uninstall the Pollora CLI from your system
+    flags:
+      - long: --force
+        help: Skip confirmation prompt
+      - long: --keep-config
+        help: Keep configuration files

@@ -1,0 +1,61 @@
+name: Build and Release CLI
+
+on:
+  push:
+    tags:
+      - 'v*'  # Déclencher sur les tags qui commencent par 'v' (v1.0.0, v0.2.0, etc.)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get Version from Tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Update Version in Bashly Config
+        run: |
+          VERSION=$(echo "${{ steps.get_version.outputs.VERSION }}" | sed 's/^v//')
+          sed -i "s/^version:.*/version: $VERSION/" bashly.yml
+
+      - name: Generate CLI with Bashly Docker
+        run: |
+          docker run --rm --volume "${PWD}:/app" dannyben/bashly generate
+
+      - name: Make CLI Executable
+        run: chmod +x pollora
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./pollora
+          asset_name: pollora
+          asset_content_type: application/octet-stream
+
+      - name: Upload Installer Script
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./install.sh
+          asset_name: install.sh
+          asset_content_type: text/x-shellscript
