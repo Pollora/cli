@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'  # Déclencher sur les tags qui commencent par 'v' (v1.0.0, v0.2.0, etc.)
 
+permissions:
+  contents: write  # Nécessaire pour créer des releases
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,45 +20,76 @@ jobs:
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
+      - name: List repository structure
+        run: |
+          echo "Contenu du répertoire racine:"
+          ls -la
+          echo "Recherche du fichier bashly.yml:"
+          find . -name "bashly.yml" -type f
+
       - name: Update Version in Bashly Config
         run: |
           VERSION=$(echo "${{ steps.get_version.outputs.VERSION }}" | sed 's/^v//')
-          sed -i "s/^version:.*/version: $VERSION/" bashly.yml
+          
+          # Rechercher le fichier bashly.yml
+          BASHLY_CONFIG=$(find . -name "bashly.yml" -type f | head -n 1)
+          
+          if [ -n "$BASHLY_CONFIG" ]; then
+            echo "Fichier bashly.yml trouvé: $BASHLY_CONFIG"
+            sed -i "s/^version:.*/version: $VERSION/" "$BASHLY_CONFIG"
+          else
+            echo "Erreur: fichier bashly.yml non trouvé"
+            exit 1
+          fi
 
       - name: Generate CLI with Bashly Docker
         run: |
-          docker run --rm --volume "${PWD}:/app" dannyben/bashly generate
+          # Exécuter Bashly en utilisant l'utilisateur courant pour éviter les problèmes de permissions
+          docker run --rm --user $(id -u):$(id -g) --volume "${PWD}:/app" dannyben/bashly generate
+          
+          # Vérifier que pollora a été généré
+          if [ ! -f "pollora" ]; then
+            echo "Erreur: Le fichier pollora n'a pas été généré"
+            echo "Recherche dans tout le répertoire:"
+            find . -name "pollora" -type f
+            exit 1
+          fi
 
-      - name: Make CLI Executable
-        run: chmod +x pollora
+      - name: Ensure file is executable
+        run: |
+          # Créer une copie du fichier avec les bonnes permissions
+          cp pollora pollora.tmp
+          rm pollora
+          mv pollora.tmp pollora
+          chmod +x pollora
+
+      - name: Verify Installer Script
+        run: |
+          if [ -f "install.sh" ]; then
+            echo "Fichier install.sh trouvé à la racine"
+          else
+            echo "Recherche du fichier install.sh:"
+            INSTALL_SCRIPT=$(find . -name "install.sh" -type f | head -n 1)
+          
+            if [ -n "$INSTALL_SCRIPT" ]; then
+              echo "Fichier install.sh trouvé: $INSTALL_SCRIPT"
+              cp "$INSTALL_SCRIPT" ./install.sh
+            else
+              echo "Avertissement: fichier install.sh non trouvé"
+              # Créer un fichier install.sh minimal
+              echo '#!/bin/bash
+              echo "Installateur temporaire - veuillez créer un fichier install.sh approprié"
+              exit 1' > install.sh
+            fi
+          fi
+          chmod +x install.sh
 
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.get_version.outputs.VERSION }}
-          release_name: Release ${{ steps.get_version.outputs.VERSION }}
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          files: |
+            ./pollora
+            ./install.sh
           draft: false
           prerelease: false
-
-      - name: Upload Release Binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./pollora
-          asset_name: pollora
-          asset_content_type: application/octet-stream
-
-      - name: Upload Installer Script
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./install.sh
-          asset_name: install.sh
-          asset_content_type: text/x-shellscript
