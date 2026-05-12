@@ -1,0 +1,65 @@
+{
+    "name": "pollora/cli",
+    "description": "Pollora CLI Tool",
+    "keywords": ["pollora", "wordpress", "laravel", "cli"],
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Olivier Gorzalka",
+            "email": "olivier@amphibee.fr",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "guzzlehttp/guzzle": "^7.0",
+        "laravel/prompts": "^0.3",
+        "symfony/console": "^7.0",
+        "symfony/process": "^7.0"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.3",
+        "laravel/pint": "^1.21",
+        "pestphp/pest": "^3.8",
+        "pestphp/pest-plugin-type-coverage": "^3.5",
+        "phpstan/phpstan": "^2.1",
+        "rector/rector": "^2.0"
+    },
+    "bin": [
+        "bin/pollora"
+    ],
+    "autoload": {
+        "psr-4": {
+            "Pollora\\Cli\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Pollora\\Cli\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "refacto": "rector",
+        "lint": "pint",
+        "test:refacto": "rector --dry-run",
+        "test:lint": "pint --test",
+        "test:types": "phpstan analyse --ansi",
+        "test:unit": "pest --colors=always",
+        "test:type-coverage": "pest --type-coverage --min=98",
+        "test": [
+            "@test:refacto",
+            "@test:lint",
+            "@test:types",
+            "@test:unit",
+            "@test:type-coverage"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
