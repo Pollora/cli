@@ -302,19 +302,23 @@ final class NewCommand extends Command
             ? 'ddev exec php artisan pollora:install'
             : $phpPrefix.' artisan pollora:install';
 
-        // Use proc_open with direct FD inheritance — inherits the parent's
-        // TTY without creating a new pseudo-TTY (which causes escape sequences)
-        $descriptors = [
-            0 => ['file', '/dev/tty', 'r'],
-            1 => ['file', '/dev/tty', 'w'],
-            2 => ['file', '/dev/tty', 'w'],
-        ];
+        $process = Process::fromShellCommandline($command, $this->absolutePath);
+        $process->setTimeout(null);
 
-        $process = proc_open($command, $descriptors, $pipes, $this->absolutePath);
+        // Set TERM=dumb on the HOST side to prevent the terminal emulator
+        // from responding to OSC queries when a new PTY is allocated
+        $env = getenv();
+        $env['TERM'] = 'dumb';
+        unset($env['COLORTERM']);
+        $process->setEnv($env);
 
-        if (is_resource($process)) {
-            proc_close($process);
+        try {
+            $process->setTty(Process::isTtySupported());
+        } catch (RuntimeException) {
+            // TTY not supported
         }
+
+        $process->run();
 
         return $this;
     }
