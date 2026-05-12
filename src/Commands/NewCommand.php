@@ -298,9 +298,13 @@ final class NewCommand extends Command
 
         $isDdev = str_starts_with($phpPrefix, 'ddev');
 
-        $command = $isDdev
-            ? 'ddev exec TERM=dumb php artisan pollora:install'
-            : $phpPrefix.' artisan pollora:install';
+        if ($isDdev) {
+            // Unset COLORTERM to prevent Laravel Prompts from querying terminal
+            // colors via OSC sequences — these leak through Docker TTY passthrough
+            $command = 'ddev exec COLORTERM= php artisan pollora:install';
+        } else {
+            $command = $phpPrefix.' artisan pollora:install';
+        }
 
         $process = Process::fromShellCommandline($command, $this->absolutePath);
         $process->setTimeout(null);
