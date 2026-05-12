@@ -208,30 +208,81 @@ final class NewCommand extends Command
         $this->output->writeln('  <info>Starting DDEV...</info>');
         $this->runCommands(['ddev start'], workingPath: $this->absolutePath);
 
-        // Create project via DDEV Composer
+        // Install project files without running post-install scripts
+        // (scripts would trigger pollora:env-setup which needs DB credentials)
         $this->output->writeln('');
         $this->output->writeln('  <info>Installing Pollora via Composer...</info>');
         $this->runCommands([
-            'ddev composer create '.self::BASE_REPO.' --remove-vcs --prefer-dist --no-interaction',
+            'ddev composer create '.self::BASE_REPO.' --remove-vcs --prefer-dist --no-interaction --no-scripts',
         ], workingPath: $this->absolutePath);
 
         if (! $this->wasInstallSuccessful()) {
             throw new RuntimeException('There was a problem installing Pollora via DDEV!');
         }
 
+        // Configure .env with DDEV database credentials before running install
+        $this->configureDdevEnv();
+
+        // Run composer scripts now that .env is configured
+        $this->output->writeln('');
+        $this->output->writeln('  <info>Running post-install scripts...</info>');
+        $this->runCommands([
+            'ddev composer run-script post-autoload-dump --no-interaction',
+        ], workingPath: $this->absolutePath);
+
         // Run pollora:install inside DDEV
         $this->runArtisanInstall('ddev exec php');
 
-        // Publish the Pollora binary and DDEV command
-        $this->output->writeln('');
-        $this->output->writeln('  <info>Publishing Pollora binary and DDEV command...</info>');
-        $this->runCommands([
-            'ddev exec php artisan vendor:publish --tag=pollora-binary --force',
-            'ddev exec php artisan vendor:publish --tag=pollora-ddev --force',
-            'ddev exec chmod +x pollora',
-        ], workingPath: $this->absolutePath);
-
         return $this;
+    }
+
+    private function configureDdevEnv(): void
+    {
+        $this->output->writeln('');
+        $this->output->writeln('  <info>Configuring environment for DDEV...</info>');
+
+        $envFile = $this->absolutePath.'/.env';
+
+        if (! is_file($envFile)) {
+            $exampleFile = $this->absolutePath.'/.env.example';
+            if (is_file($exampleFile)) {
+                copy($exampleFile, $envFile);
+            }
+        }
+
+        if (! is_file($envFile)) {
+            return;
+        }
+
+        $env = file_get_contents($envFile);
+
+        if ($env === false) {
+            return;
+        }
+
+        $siteUrl = 'https://'.$this->relativePath.'.ddev.site';
+
+        // Set DDEV database credentials and app URL
+        $replacements = [
+            '/^#?\s*DB_CONNECTION=.*/m' => 'DB_CONNECTION=mysql',
+            '/^#?\s*DB_HOST=.*/m' => 'DB_HOST=db',
+            '/^#?\s*DB_PORT=.*/m' => 'DB_PORT=3306',
+            '/^#?\s*DB_DATABASE=.*/m' => 'DB_DATABASE=db',
+            '/^#?\s*DB_USERNAME=.*/m' => 'DB_USERNAME=db',
+            '/^#?\s*DB_PASSWORD=.*/m' => 'DB_PASSWORD=db',
+            '/^APP_URL=.*/m' => 'APP_URL='.$siteUrl,
+        ];
+
+        foreach ($replacements as $pattern => $replacement) {
+            $env = preg_replace($pattern, $replacement, $env) ?? $env;
+        }
+
+        file_put_contents($envFile, $env);
+
+        // Generate application key
+        $this->runCommands([
+            'ddev exec php artisan key:generate --no-interaction',
+        ], workingPath: $this->absolutePath);
     }
 
     // ──────────────────────────────────────────────
