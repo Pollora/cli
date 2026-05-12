@@ -302,12 +302,19 @@ final class NewCommand extends Command
             ? 'ddev exec php artisan pollora:install'
             : $phpPrefix.' artisan pollora:install';
 
-        // Use passthru to inherit the current TTY directly — avoids creating
-        // a new pseudo-TTY which causes terminal escape sequences to leak
-        $cwd = (string) getcwd();
-        chdir($this->absolutePath);
-        passthru($command);
-        chdir($cwd);
+        // Use proc_open with direct FD inheritance — inherits the parent's
+        // TTY without creating a new pseudo-TTY (which causes escape sequences)
+        $descriptors = [
+            0 => ['file', '/dev/tty', 'r'],
+            1 => ['file', '/dev/tty', 'w'],
+            2 => ['file', '/dev/tty', 'w'],
+        ];
+
+        $process = proc_open($command, $descriptors, $pipes, $this->absolutePath);
+
+        if (is_resource($process)) {
+            proc_close($process);
+        }
 
         return $this;
     }
