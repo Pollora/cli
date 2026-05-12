@@ -40,14 +40,6 @@ trait RunsCommands
 
         $process = Process::fromShellCommandline(implode(' && ', $commands), $workingPath, timeout: null);
 
-        if ('\\' !== DIRECTORY_SEPARATOR && file_exists('/dev/tty') && is_readable('/dev/tty')) {
-            try {
-                $process->setTty(! ($this->input->hasOption('no-interaction') && $this->input->getOption('no-interaction')));
-            } catch (\RuntimeException) {
-                // TTY not supported
-            }
-        }
-
         if ($disableOutput) {
             $process->disableOutput()->run();
         } else {

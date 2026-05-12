@@ -223,14 +223,15 @@ final class NewCommand extends Command
         // Configure .env with DDEV database credentials before running install
         $this->configureDdevEnv();
 
-        // Run composer scripts now that .env is configured
+        // Regenerate autoload without triggering artisan scripts
+        // (scripts run pollora:install non-interactively which fails on prompts)
         $this->output->writeln('');
-        $this->output->writeln('  <info>Running post-install scripts...</info>');
+        $this->output->writeln('  <info>Finalizing installation...</info>');
         $this->runCommands([
-            'ddev composer run-script post-autoload-dump --no-interaction',
+            'ddev composer dump-autoload --no-scripts',
         ], workingPath: $this->absolutePath);
 
-        // Run pollora:install inside DDEV
+        // Run pollora:install interactively inside DDEV
         $this->runArtisanInstall('ddev exec php');
 
         return $this;
