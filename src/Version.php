@@ -8,7 +8,13 @@ final class Version
 {
     public static function get(): string
     {
-        $contents = @file_get_contents(__DIR__.'/../composer.json');
+        $composerJsonPath = __DIR__.'/../composer.json';
+
+        if (! is_file($composerJsonPath)) {
+            return 'UNKNOWN';
+        }
+
+        $contents = file_get_contents($composerJsonPath);
 
         if ($contents === false) {
             return 'UNKNOWN';
@@ -22,9 +28,13 @@ final class Version
         }
 
         // Try reading from composer.lock when installed as a dependency
-        $lockContents = @file_get_contents(__DIR__.'/../../../../composer.lock');
+        $lockPath = __DIR__.'/../../../../composer.lock';
 
-        if ($lockContents !== false) {
+        if (is_file($lockPath)) {
+            $lockContents = file_get_contents($lockPath);
+        }
+
+        if (isset($lockContents) && $lockContents !== false) {
             /** @var array{packages?: list<array{name: string, version: string}>}|null $lock */
             $lock = json_decode($lockContents, true);
 
