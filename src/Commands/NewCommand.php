@@ -298,26 +298,16 @@ final class NewCommand extends Command
 
         $isDdev = str_starts_with($phpPrefix, 'ddev');
 
-        if ($isDdev) {
-            // Unset COLORTERM to prevent Laravel Prompts from querying terminal
-            // colors via OSC sequences — these leak through Docker TTY passthrough
-            $command = 'ddev exec COLORTERM= php artisan pollora:install';
-        } else {
-            $command = $phpPrefix.' artisan pollora:install';
-        }
+        $command = $isDdev
+            ? 'ddev exec php artisan pollora:install'
+            : $phpPrefix.' artisan pollora:install';
 
-        $process = Process::fromShellCommandline($command, $this->absolutePath);
-        $process->setTimeout(null);
-
-        try {
-            $process->setTty(Process::isTtySupported());
-        } catch (RuntimeException) {
-            // TTY not supported
-        }
-
-        $process->run(function (string $type, string $line): void {
-            $this->output->write('    '.$line);
-        });
+        // Use passthru to inherit the current TTY directly — avoids creating
+        // a new pseudo-TTY which causes terminal escape sequences to leak
+        $cwd = (string) getcwd();
+        chdir($this->absolutePath);
+        passthru($command);
+        chdir($cwd);
 
         return $this;
     }
