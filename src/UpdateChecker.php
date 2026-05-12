@@ -103,6 +103,7 @@ final class UpdateChecker
                 if (str_starts_with((string) $version, 'dev-')) {
                     continue;
                 }
+
                 if (str_contains((string) $version, '-dev')) {
                     continue;
                 }

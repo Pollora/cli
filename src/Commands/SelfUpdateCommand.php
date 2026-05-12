@@ -44,7 +44,9 @@ final class SelfUpdateCommand extends Command
 
         $output->writeln('');
 
-        $process = new Process(['composer', 'global', 'update', 'pollora/cli', '--no-interaction']);
+        // Use "require" instead of "update" to also update the version constraint
+        $constraint = $latestVersion !== null ? ':^'.ltrim($latestVersion, 'v') : '';
+        $process = new Process(['composer', 'global', 'require', 'pollora/cli'.$constraint, '--no-interaction']);
         $process->setTimeout(300);
 
         $process->run(static function (string $type, string $line) use ($output): void {
@@ -54,7 +56,7 @@ final class SelfUpdateCommand extends Command
         if (! $process->isSuccessful()) {
             $output->writeln('');
             $output->writeln('<error>Failed to update Pollora CLI.</error>');
-            $output->writeln('  You can try manually: <comment>composer global update pollora/cli</comment>');
+            $output->writeln('  You can try manually: <comment>composer global require pollora/cli</comment>');
 
             return Command::FAILURE;
         }
@@ -97,6 +99,7 @@ final class SelfUpdateCommand extends Command
                 if (str_starts_with((string) $version, 'dev-')) {
                     continue;
                 }
+
                 if (str_contains((string) $version, '-dev')) {
                     continue;
                 }
