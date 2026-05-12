@@ -213,7 +213,7 @@ final class NewCommand extends Command
         $this->output->writeln('');
         $this->output->writeln('  <info>Installing Pollora via Composer...</info>');
         $this->runCommands([
-            'ddev composer create '.self::BASE_REPO.' --remove-vcs --prefer-dist --no-interaction --no-scripts',
+            'ddev composer create-project '.self::BASE_REPO.' --remove-vcs --prefer-dist --no-interaction --no-scripts',
         ], workingPath: $this->absolutePath);
 
         if (! $this->wasInstallSuccessful()) {
@@ -296,11 +296,13 @@ final class NewCommand extends Command
         $this->output->writeln('  <info>Running pollora:install...</info>');
         $this->output->writeln('');
 
-        $commandParts = explode(' ', $phpPrefix);
-        $commandParts[] = 'artisan';
-        $commandParts[] = 'pollora:install';
+        // Use shell command for DDEV to avoid terminal escape sequences
+        $isDdev = str_starts_with($phpPrefix, 'ddev');
+        $command = $isDdev
+            ? 'ddev exec TERM=dumb php artisan pollora:install'
+            : $phpPrefix.' artisan pollora:install';
 
-        $process = new Process($commandParts, $this->absolutePath);
+        $process = Process::fromShellCommandline($command, $this->absolutePath);
         $process->setTimeout(null);
 
         try {
