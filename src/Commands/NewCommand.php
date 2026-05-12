@@ -298,36 +298,22 @@ final class NewCommand extends Command
 
         $isDdev = str_starts_with($phpPrefix, 'ddev');
 
-        if ($isDdev) {
-            // For DDEV: avoid TTY to prevent terminal escape sequences
-            // ddev exec handles its own TTY allocation
-            $process = Process::fromShellCommandline(
-                'ddev exec php artisan pollora:install',
-                $this->absolutePath,
-            );
-            $process->setTimeout(null);
-            $process->run(function (string $type, string $line): void {
-                $this->output->write('    '.$line);
-            });
-        } else {
-            // For local: use TTY for interactive Laravel Prompts
-            $commandParts = explode(' ', $phpPrefix);
-            $commandParts[] = 'artisan';
-            $commandParts[] = 'pollora:install';
+        $command = $isDdev
+            ? 'ddev exec TERM=dumb php artisan pollora:install'
+            : $phpPrefix.' artisan pollora:install';
 
-            $process = new Process($commandParts, $this->absolutePath);
-            $process->setTimeout(null);
+        $process = Process::fromShellCommandline($command, $this->absolutePath);
+        $process->setTimeout(null);
 
-            try {
-                $process->setTty(Process::isTtySupported());
-            } catch (RuntimeException) {
-                // TTY not supported
-            }
-
-            $process->run(function (string $type, string $line): void {
-                $this->output->write('    '.$line);
-            });
+        try {
+            $process->setTty(Process::isTtySupported());
+        } catch (RuntimeException) {
+            // TTY not supported
         }
+
+        $process->run(function (string $type, string $line): void {
+            $this->output->write('    '.$line);
+        });
 
         return $this;
     }
