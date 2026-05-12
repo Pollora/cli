@@ -22,11 +22,50 @@ Install the CLI globally via Composer:
 composer global require pollora/cli
 ```
 
-Make sure the Composer global `vendor/bin` directory is in your system's `PATH`. You can check its location with:
+Make sure the Composer global `vendor/bin` directory is in your system's `PATH`:
 
 ```bash
 composer global config bin-dir --absolute
 ```
+
+Add the returned path to your shell profile if it's not already configured:
+
+<details>
+<summary><strong>Bash</strong> — <code>~/.bashrc</code></summary>
+
+```bash
+export PATH="$HOME/.config/composer/vendor/bin:$PATH"
+```
+</details>
+
+<details>
+<summary><strong>Zsh</strong> — <code>~/.zshrc</code></summary>
+
+```bash
+export PATH="$HOME/.config/composer/vendor/bin:$PATH"
+```
+</details>
+
+<details>
+<summary><strong>Fish</strong> — <code>~/.config/fish/config.fish</code></summary>
+
+```fish
+fish_add_path $HOME/.config/composer/vendor/bin
+```
+</details>
+
+<details>
+<summary><strong>Windows (PowerShell)</strong></summary>
+
+```powershell
+# Add to your PowerShell profile ($PROFILE)
+$env:PATH = "$env:APPDATA\Composer\vendor\bin;$env:PATH"
+```
+</details>
+
+> **Note:** On some systems, the Composer global directory may be `~/.composer/vendor/bin` instead of `~/.config/composer/vendor/bin`. Use the `composer global config bin-dir --absolute` command to check.
+
+After updating your profile, reload your shell (`source ~/.zshrc`, `source ~/.bashrc`, etc.) or open a new terminal.
 
 ## Creating a new project
 
