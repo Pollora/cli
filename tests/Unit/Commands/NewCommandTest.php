@@ -47,6 +47,14 @@ it('supports --branch option with default value', function (): void {
         ->and($definition->getOption('branch')->getDefault())->toBe('main');
 });
 
+it('supports --ddev option', function (): void {
+    $app = Application::create();
+    $command = $app->find('new');
+    $definition = $command->getDefinition();
+
+    expect($definition->hasOption('ddev'))->toBeTrue();
+});
+
 it('fails when directory already exists', function (): void {
     $dir = sys_get_temp_dir().'/pollora-exists-'.uniqid();
     mkdir($dir, 0755, true);

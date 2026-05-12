@@ -36,6 +36,8 @@ final class NewCommand extends Command
 
     private bool $initGit = false;
 
+    private bool $useDdev = false;
+
     protected function configure(): void
     {
         $this
@@ -44,7 +46,8 @@ final class NewCommand extends Command
             ->addArgument('name', InputArgument::OPTIONAL, 'Application directory name')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Force install even if the directory already exists')
             ->addOption('git', null, InputOption::VALUE_NONE, 'Initialize a Git repository')
-            ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'The branch that should be created for a new repository', 'main');
+            ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'The branch that should be created for a new repository', 'main')
+            ->addOption('ddev', null, InputOption::VALUE_NONE, 'Set up the project with DDEV');
     }
 
     protected function initialize(InputInterface $input, OutputInterface $output): void
@@ -58,18 +61,16 @@ final class NewCommand extends Command
 
     protected function interact(InputInterface $input, OutputInterface $output): void
     {
-        if ($input->getArgument('name') !== null) {
-            return;
+        if ($input->getArgument('name') === null) {
+            $input->setArgument('name', text(
+                label: 'What is the name of your project?',
+                placeholder: 'E.g. my-pollora-site',
+                required: 'The project name is required.',
+                validate: static fn (string $value): ?string => preg_match('/[^\pL\pN\-_.]/', $value) !== 0
+                    ? 'The name may only contain letters, numbers, dashes, underscores, and periods.'
+                    : null,
+            ));
         }
-
-        $input->setArgument('name', text(
-            label: 'What is the name of your project?',
-            placeholder: 'E.g. my-pollora-site',
-            required: 'The project name is required.',
-            validate: static fn (string $value): ?string => preg_match('/[^\pL\pN\-_.]/', $value) !== 0
-                ? 'The name may only contain letters, numbers, dashes, underscores, and periods.'
-                : null,
-        ));
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -78,8 +79,8 @@ final class NewCommand extends Command
             $this
                 ->processArguments()
                 ->validateArguments()
-                ->installBaseProject()
-                ->runPolloraInstall()
+                ->askForDdev()
+                ->install()
                 ->initializeGitRepository()
                 ->showSuccessMessage();
         } catch (RuntimeException $runtimeException) {
@@ -104,6 +105,7 @@ final class NewCommand extends Command
 
         $this->force = (bool) $this->input->getOption('force');
         $this->initGit = (bool) $this->input->getOption('git');
+        $this->useDdev = (bool) $this->input->getOption('ddev');
 
         return $this;
     }
@@ -121,7 +123,36 @@ final class NewCommand extends Command
         return $this;
     }
 
-    private function installBaseProject(): self
+    private function askForDdev(): self
+    {
+        if ($this->useDdev || ! $this->input->isInteractive()) {
+            return $this;
+        }
+
+        if ($this->isDdevInstalled()) {
+            $this->useDdev = confirm(
+                label: 'Set up the project with DDEV?',
+                default: true,
+            );
+        }
+
+        return $this;
+    }
+
+    private function install(): self
+    {
+        if ($this->useDdev) {
+            return $this->installWithDdev();
+        }
+
+        return $this->installWithComposer();
+    }
+
+    // ──────────────────────────────────────────────
+    // Standard install (without DDEV)
+    // ──────────────────────────────────────────────
+
+    private function installWithComposer(): self
     {
         $commands = [];
 
@@ -141,19 +172,83 @@ final class NewCommand extends Command
             throw new RuntimeException('There was a problem installing Pollora!');
         }
 
+        $this->runArtisanInstall('php');
+
         return $this;
     }
 
-    private function runPolloraInstall(): self
+    // ──────────────────────────────────────────────
+    // DDEV install
+    // ──────────────────────────────────────────────
+
+    private function installWithDdev(): self
+    {
+        if (! $this->isDdevInstalled()) {
+            throw new RuntimeException('DDEV is not installed. Please install it from https://ddev.readthedocs.io');
+        }
+
+        $this->output->writeln('');
+        $this->output->writeln('  <info>Setting up DDEV environment...</info>');
+
+        // Create project directory
+        if (! is_dir($this->absolutePath)) {
+            mkdir($this->absolutePath, 0755, true);
+        }
+
+        // Configure DDEV
+        $this->runCommands([
+            sprintf(
+                'ddev config --project-name=%s --project-type=wordpress --docroot=public --php-version=8.4 --database=mariadb:10.11 --disable-settings-management',
+                escapeshellarg($this->relativePath)
+            ),
+        ], workingPath: $this->absolutePath);
+
+        // Start DDEV
+        $this->output->writeln('');
+        $this->output->writeln('  <info>Starting DDEV...</info>');
+        $this->runCommands(['ddev start'], workingPath: $this->absolutePath);
+
+        // Create project via DDEV Composer
+        $this->output->writeln('');
+        $this->output->writeln('  <info>Installing Pollora via Composer...</info>');
+        $this->runCommands([
+            'ddev composer create '.self::BASE_REPO.' --remove-vcs --prefer-dist --no-interaction',
+        ], workingPath: $this->absolutePath);
+
+        if (! $this->wasInstallSuccessful()) {
+            throw new RuntimeException('There was a problem installing Pollora via DDEV!');
+        }
+
+        // Run pollora:install inside DDEV
+        $this->runArtisanInstall('ddev exec php');
+
+        // Publish the Pollora binary and DDEV command
+        $this->output->writeln('');
+        $this->output->writeln('  <info>Publishing Pollora binary and DDEV command...</info>');
+        $this->runCommands([
+            'ddev exec php artisan vendor:publish --tag=pollora-binary --force',
+            'ddev exec php artisan vendor:publish --tag=pollora-ddev --force',
+            'ddev exec chmod +x pollora',
+        ], workingPath: $this->absolutePath);
+
+        return $this;
+    }
+
+    // ──────────────────────────────────────────────
+    // Shared helpers
+    // ──────────────────────────────────────────────
+
+    private function runArtisanInstall(string $phpPrefix): self
     {
         $this->output->writeln('');
         $this->output->writeln('  <info>Running pollora:install...</info>');
         $this->output->writeln('');
 
-        $process = new Process(
-            [PHP_BINARY, 'artisan', 'pollora:install'],
-            $this->absolutePath,
-        );
+        $commandParts = explode(' ', $phpPrefix);
+        $commandParts[] = 'artisan';
+        $commandParts[] = 'pollora:install';
+
+        $process = new Process($commandParts, $this->absolutePath);
         $process->setTimeout(null);
 
         try {
@@ -202,7 +297,17 @@ final class NewCommand extends Command
         $this->output->writeln('');
         $this->output->writeln('  <info>[OK] Pollora was installed successfully!</info>');
         $this->output->writeln('');
-        $this->output->writeln(sprintf('  Enter your project directory with <comment>cd %s</comment>', $this->relativePath));
+
+        if ($this->useDdev) {
+            $this->output->writeln(sprintf('  Enter your project directory with <comment>cd %s</comment>', $this->relativePath));
+            $this->output->writeln('  Your site is available at <info>https://'.$this->relativePath.'.ddev.site</info>');
+            $this->output->writeln('');
+            $this->output->writeln('  Use <comment>ddev pollora</comment> to run Pollora commands');
+            $this->output->writeln('  Use <comment>ddev launch</comment> to open your site in a browser');
+        } else {
+            $this->output->writeln(sprintf('  Enter your project directory with <comment>cd %s</comment>', $this->relativePath));
+        }
+
         $this->output->writeln('  Documentation: <info>https://pollora.dev</info>');
         $this->output->writeln('');
 
@@ -268,6 +373,14 @@ final class NewCommand extends Command
     private function isGitInstalled(): bool
     {
         $process = new Process(['git', '--version']);
+        $process->run();
+
+        return $process->isSuccessful();
+    }
+
+    private function isDdevInstalled(): bool
+    {
+        $process = new Process(['ddev', 'version']);
         $process->run();
 
         return $process->isSuccessful();
