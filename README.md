@@ -147,12 +147,29 @@ The framework provides a dedicated `./pollora` binary (published via `vendor:pub
 
 The original `php artisan pollora:*` signatures continue to work as aliases.
 
+## Updating
+
+The CLI checks for updates automatically (once every 24 hours) and displays a notification when a new version is available:
+
+```
+  A new version of Pollora CLI is available: v0.3.0 (current: v0.2.0)
+  Run pollora self-update to update.
+```
+
+To update manually:
+
+```bash
+pollora self-update
+```
+
+This runs `composer global update pollora/cli` under the hood. You can also use the alias `pollora self:update`.
+
 ## Other commands
 
 | Command | Description |
 |---|---|
 | `pollora version` | Display the CLI version |
-| `pollora self-update` | Update the CLI to the latest version |
+| `pollora self-update` | Update the CLI to the latest version (alias: `self:update`) |
 
 ## Requirements
 

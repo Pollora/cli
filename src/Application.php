@@ -35,6 +35,11 @@ final class Application extends SymfonyApplication
             return $proxy->execute($input);
         }
 
-        return parent::doRun($input, $output);
+        $exitCode = parent::doRun($input, $output);
+
+        // Show update notification after command execution
+        UpdateChecker::notify($output);
+
+        return $exitCode;
     }
 }

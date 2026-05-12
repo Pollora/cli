@@ -13,24 +13,25 @@ use Symfony\Component\Process\Process;
 
 final class SelfUpdateCommand extends Command
 {
-    private const GITHUB_LATEST_RELEASE_ENDPOINT = 'https://api.github.com/repos/Pollora/cli/releases/latest';
+    private const PACKAGIST_ENDPOINT = 'https://repo.packagist.org/p2/pollora/cli.json';
 
     protected function configure(): void
     {
         $this
             ->setName('self-update')
+            ->setAliases(['self:update'])
             ->setDescription('Update the Pollora CLI to the latest version');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $currentVersion = Version::get();
-        $output->writeln('<info>Current version:</info> '.$currentVersion);
+        $output->writeln(sprintf('<info>Current version:</info> %s', $currentVersion));
 
         $latestVersion = $this->getLatestVersion();
 
-        if ($latestVersion !== null && version_compare($currentVersion, $latestVersion, '>=')) {
-            $output->writeln('<info>You are already using the latest version.</info>');
+        if ($latestVersion !== null && $this->isUpToDate($currentVersion, $latestVersion)) {
+            $output->writeln(sprintf('<info>You are already using the latest version (%s).</info>', $latestVersion));
 
             return Command::SUCCESS;
         }
@@ -38,42 +39,72 @@ final class SelfUpdateCommand extends Command
         if ($latestVersion !== null) {
             $output->writeln(sprintf('<comment>Updating to %s...</comment>', $latestVersion));
         } else {
-            $output->writeln('<comment>Updating to latest version...</comment>');
+            $output->writeln('<comment>Checking for updates...</comment>');
         }
 
-        $process = new Process(['composer', 'global', 'update', 'pollora/cli']);
+        $output->writeln('');
+
+        $process = new Process(['composer', 'global', 'update', 'pollora/cli', '--no-interaction']);
         $process->setTimeout(300);
 
         $process->run(static function (string $type, string $line) use ($output): void {
-            $output->write($line);
+            $output->write('  '.$line);
         });
 
         if (! $process->isSuccessful()) {
+            $output->writeln('');
             $output->writeln('<error>Failed to update Pollora CLI.</error>');
+            $output->writeln('  You can try manually: <comment>composer global update pollora/cli</comment>');
 
             return Command::FAILURE;
         }
 
+        $output->writeln('');
         $output->writeln('<info>Pollora CLI updated successfully!</info>');
 
         return Command::SUCCESS;
+    }
+
+    private function isUpToDate(string $current, string $latest): bool
+    {
+        $current = ltrim($current, 'v');
+        $latest = ltrim($latest, 'v');
+
+        if (! preg_match('/^\d+\.\d+/', $current)) {
+            return false;
+        }
+
+        return version_compare($current, $latest, '>=');
     }
 
     private function getLatestVersion(): ?string
     {
         try {
             $client = new Client;
-            $response = $client->get(self::GITHUB_LATEST_RELEASE_ENDPOINT, [
+            $response = $client->get(self::PACKAGIST_ENDPOINT, [
                 'timeout' => 5,
-                'headers' => [
-                    'Accept' => 'application/vnd.github.v3+json',
-                ],
             ]);
 
-            /** @var array{tag_name?: string}|null $data */
+            /** @var array<string, mixed>|null $data */
             $data = json_decode((string) $response->getBody(), true);
 
-            return $data['tag_name'] ?? null;
+            if (! is_array($data) || ! isset($data['packages']['pollora/cli'])) {
+                return null;
+            }
+
+            foreach ($data['packages']['pollora/cli'] as $release) {
+                $version = $release['version'];
+                if (str_starts_with((string) $version, 'dev-')) {
+                    continue;
+                }
+                if (str_contains((string) $version, '-dev')) {
+                    continue;
+                }
+
+                return $version;
+            }
+
+            return null;
         } catch (\Throwable) {
             return null;
         }
