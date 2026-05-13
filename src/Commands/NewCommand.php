@@ -38,6 +38,8 @@ final class NewCommand extends Command
 
     private bool $useDdev = false;
 
+    private string $projectVersion = '';
+
     protected function configure(): void
     {
         $this
@@ -47,7 +49,8 @@ final class NewCommand extends Command
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Force install even if the directory already exists')
             ->addOption('git', null, InputOption::VALUE_NONE, 'Initialize a Git repository')
             ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'The branch that should be created for a new repository', 'main')
-            ->addOption('ddev', null, InputOption::VALUE_NONE, 'Set up the project with DDEV');
+            ->addOption('ddev', null, InputOption::VALUE_NONE, 'Set up the project with DDEV')
+            ->addOption('ver', null, InputOption::VALUE_REQUIRED, 'Install a specific Pollora version (e.g. 13.4.0)');
     }
 
     protected function initialize(InputInterface $input, OutputInterface $output): void
@@ -106,6 +109,7 @@ final class NewCommand extends Command
         $this->force = (bool) $this->input->getOption('force');
         $this->initGit = (bool) $this->input->getOption('git');
         $this->useDdev = (bool) $this->input->getOption('ddev');
+        $this->projectVersion = (string) ($this->input->getOption('ver') ?? '');
 
         return $this;
     }
@@ -164,7 +168,7 @@ final class NewCommand extends Command
 
         $composer = $this->findComposer();
         $directory = $this->pathIsCwd() ? '.' : $this->relativePath;
-        $commands[] = $composer.' create-project '.self::BASE_REPO.sprintf(' "%s" --remove-vcs --prefer-dist', $directory);
+        $commands[] = $composer.' create-project '.self::BASE_REPO.$this->getVersionConstraint().sprintf(' "%s" --remove-vcs --prefer-dist', $directory);
 
         $this->runCommands($commands);
 
@@ -213,7 +217,7 @@ final class NewCommand extends Command
         $this->output->writeln('');
         $this->output->writeln('  <info>Installing Pollora via Composer...</info>');
         $this->runCommands([
-            'ddev composer create-project '.self::BASE_REPO.' --remove-vcs --prefer-dist --no-interaction --no-scripts',
+            'ddev composer create-project '.self::BASE_REPO.$this->getVersionConstraint().' --remove-vcs --prefer-dist --no-interaction --no-scripts',
         ], workingPath: $this->absolutePath);
 
         if (! $this->wasInstallSuccessful()) {
@@ -435,6 +439,21 @@ final class NewCommand extends Command
         $process->run();
 
         return $process->isSuccessful();
+    }
+
+    /**
+     * Get the Composer version constraint for create-project.
+     * Returns empty string for latest, or ':v13.4.0' format for specific version.
+     */
+    private function getVersionConstraint(): string
+    {
+        if ($this->projectVersion === '') {
+            return '';
+        }
+
+        $version = ltrim($this->projectVersion, 'v');
+
+        return ':v'.$version;
     }
 
     private function isDdevInstalled(): bool

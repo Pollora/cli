@@ -47,6 +47,14 @@ it('supports --branch option with default value', function (): void {
         ->and($definition->getOption('branch')->getDefault())->toBe('main');
 });
 
+it('supports --ver option', function (): void {
+    $app = Application::create();
+    $command = $app->find('new');
+    $definition = $command->getDefinition();
+
+    expect($definition->hasOption('ver'))->toBeTrue();
+});
+
 it('supports --ddev option', function (): void {
     $app = Application::create();
     $command = $app->find('new');
