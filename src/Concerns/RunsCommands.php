@@ -18,24 +18,16 @@ trait RunsCommands
      */
     protected function runCommands(array $commands, ?string $workingPath = null, bool $disableOutput = false): Process
     {
-        if (! $this->output->isDecorated()) {
-            $commands = array_map(static function (string $value): string {
-                if (str_starts_with($value, 'chmod') || str_starts_with($value, 'git')) {
-                    return $value;
-                }
+        $skipFlags = static fn (string $value): bool => str_starts_with($value, 'chmod')
+            || str_starts_with($value, 'git')
+            || str_starts_with($value, 'ddev');
 
-                return $value.' --no-ansi';
-            }, $commands);
+        if (! $this->output->isDecorated()) {
+            $commands = array_map(static fn (string $value): string => $skipFlags($value) ? $value : $value.' --no-ansi', $commands);
         }
 
         if ($this->input->getOption('quiet')) {
-            $commands = array_map(static function (string $value): string {
-                if (str_starts_with($value, 'chmod') || str_starts_with($value, 'git')) {
-                    return $value;
-                }
-
-                return $value.' --quiet';
-            }, $commands);
+            $commands = array_map(static fn (string $value): string => $skipFlags($value) ? $value : $value.' --quiet', $commands);
         }
 
         $process = Process::fromShellCommandline(implode(' && ', $commands), $workingPath, timeout: null);
