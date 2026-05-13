@@ -227,11 +227,11 @@ final class NewCommand extends Command
         // Configure .env with DDEV database credentials before running install
         $this->configureDdevEnv();
 
-        // Regenerate autoload and run env-setup to create WordPress tables
+        // Update framework to latest patch and run env-setup
         $this->output->writeln('');
         $this->output->writeln('  <info>Finalizing installation...</info>');
         $this->runCommands([
-            'ddev composer dump-autoload --no-scripts',
+            'ddev composer update pollora/framework --no-scripts',
             'ddev exec php artisan pollora:env-setup --install',
         ], workingPath: $this->absolutePath);
 
