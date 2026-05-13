@@ -238,6 +238,12 @@ final class NewCommand extends Command
         // Run pollora:install interactively inside DDEV
         $this->runArtisanInstall('ddev exec php');
 
+        // Clear stale WordPress theme_roots transient so WP picks up
+        // the correct themes/ directory on next request
+        $this->runCommands([
+            "ddev exec mysql -u db -pdb db -e \"DELETE FROM pf_options WHERE option_name LIKE '%theme_roots%';\"",
+        ], workingPath: $this->absolutePath, disableOutput: true);
+
         return $this;
     }
 
