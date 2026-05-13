@@ -227,12 +227,12 @@ final class NewCommand extends Command
         // Configure .env with DDEV database credentials before running install
         $this->configureDdevEnv();
 
-        // Regenerate autoload without triggering artisan scripts
-        // (scripts run pollora:install non-interactively which fails on prompts)
+        // Regenerate autoload and run env-setup to create WordPress tables
         $this->output->writeln('');
         $this->output->writeln('  <info>Finalizing installation...</info>');
         $this->runCommands([
             'ddev composer dump-autoload --no-scripts',
+            'ddev exec php artisan pollora:env-setup --install',
         ], workingPath: $this->absolutePath);
 
         // Run pollora:install interactively inside DDEV
@@ -282,12 +282,12 @@ final class NewCommand extends Command
             $env = preg_replace($pattern, $replacement, $env) ?? $env;
         }
 
-        file_put_contents($envFile, $env);
+        // Generate application key directly (without artisan, which would
+        // boot the framework and fail on missing WordPress tables)
+        $key = 'base64:'.base64_encode(random_bytes(32));
+        $env = preg_replace('/^APP_KEY=.*/m', 'APP_KEY='.$key, $env) ?? $env;
 
-        // Generate application key
-        $this->runCommands([
-            'ddev exec php artisan key:generate --no-interaction',
-        ], workingPath: $this->absolutePath);
+        file_put_contents($envFile, $env);
     }
 
     // ──────────────────────────────────────────────
