@@ -23,8 +23,29 @@ final readonly class ProjectDetector
             && is_dir($dir.'/vendor/pollora/framework');
     }
 
+    public function isDdev(): bool
+    {
+        return is_dir($this->getDirectory().'/.ddev');
+    }
+
     public function getArtisanPath(): string
     {
         return $this->getDirectory().'/artisan';
+    }
+
+    /**
+     * Build the command array to execute an artisan command,
+     * using DDEV when the project is configured for it.
+     *
+     * @param  list<string>  $args
+     * @return list<string>
+     */
+    public function getArtisanCommand(string $artisanCommand, array $args = []): array
+    {
+        if ($this->isDdev()) {
+            return array_merge(['ddev', 'exec', 'php', 'artisan', $artisanCommand], $args);
+        }
+
+        return array_merge([PHP_BINARY, $this->getArtisanPath(), $artisanCommand], $args);
     }
 }

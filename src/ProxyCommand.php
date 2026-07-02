@@ -56,7 +56,7 @@ final readonly class ProxyCommand
         $args = $this->resolveArguments($input);
 
         $process = new Process(
-            array_merge([PHP_BINARY, $this->detector->getArtisanPath(), $artisanCommand], $args),
+            $this->detector->getArtisanCommand($artisanCommand, $args),
         );
 
         $process->setTimeout(null);

@@ -52,3 +52,56 @@ it('uses cwd when no directory is provided', function (): void {
 
     expect($detector->getDirectory())->toBe((string) getcwd());
 });
+
+it('detects DDEV when .ddev directory exists', function (): void {
+    $dir = sys_get_temp_dir().'/pollora-ddev-'.uniqid();
+    mkdir($dir.'/.ddev', 0755, true);
+
+    $detector = new ProjectDetector($dir);
+
+    expect($detector->isDdev())->toBeTrue();
+
+    rmdir($dir.'/.ddev');
+    rmdir($dir);
+});
+
+it('returns false for isDdev when no .ddev directory', function (): void {
+    $dir = sys_get_temp_dir().'/pollora-no-ddev-'.uniqid();
+    mkdir($dir, 0755, true);
+
+    $detector = new ProjectDetector($dir);
+
+    expect($detector->isDdev())->toBeFalse();
+
+    rmdir($dir);
+});
+
+it('builds DDEV artisan command when in DDEV context', function (): void {
+    $dir = sys_get_temp_dir().'/pollora-ddev-cmd-'.uniqid();
+    mkdir($dir.'/.ddev', 0755, true);
+
+    $detector = new ProjectDetector($dir);
+
+    expect($detector->getArtisanCommand('pollora:status'))
+        ->toBe(['ddev', 'exec', 'php', 'artisan', 'pollora:status']);
+
+    expect($detector->getArtisanCommand('pollora:install', ['--no-interaction']))
+        ->toBe(['ddev', 'exec', 'php', 'artisan', 'pollora:install', '--no-interaction']);
+
+    rmdir($dir.'/.ddev');
+    rmdir($dir);
+});
+
+it('builds classic artisan command when not in DDEV context', function (): void {
+    $dir = sys_get_temp_dir().'/pollora-classic-cmd-'.uniqid();
+    mkdir($dir, 0755, true);
+    touch($dir.'/artisan');
+
+    $detector = new ProjectDetector($dir);
+
+    expect($detector->getArtisanCommand('pollora:status'))
+        ->toBe([PHP_BINARY, $dir.'/artisan', 'pollora:status']);
+
+    unlink($dir.'/artisan');
+    rmdir($dir);
+});
