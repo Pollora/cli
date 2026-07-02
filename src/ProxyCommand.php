@@ -62,10 +62,14 @@ final readonly class ProxyCommand
         $process->setTimeout(null);
         $process->setWorkingDirectory($this->detector->getDirectory());
 
-        try {
-            $process->setTty(Process::isTtySupported());
-        } catch (\RuntimeException) {
-            // TTY not supported
+        // When running via DDEV, avoid TTY mode — ddev exec handles
+        // its own terminal and TTY causes stray escape sequences.
+        if (! $this->detector->isDdev()) {
+            try {
+                $process->setTty(Process::isTtySupported());
+            } catch (\RuntimeException) {
+                // TTY not supported
+            }
         }
 
         $process->run(function (string $type, string $line): void {
