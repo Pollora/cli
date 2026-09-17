@@ -2,7 +2,7 @@
     "name": "pollora/cli",
     "description": "Pollora CLI Tool",
     "keywords": ["pollora", "wordpress", "laravel", "cli"],
-    "license": "GPL-2.0-or-later",
+    "license": "MIT",
     "authors": [
         {
             "name": "Olivier Gorzalka",

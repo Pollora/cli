@@ -190,4 +190,4 @@ composer test:type-coverage # Check type coverage (>= 98%)
 
 ## License
 
-Pollora CLI is open-sourced software licensed under the [GPL-2.0-or-later](LICENSE).
+Pollora CLI is open-sourced software licensed under the [MIT license](LICENSE).
