@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Pollora\Cli\Application;
 use Pollora\Cli\Commands\NewCommand;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Tester\CommandTester;
 
 it('has the new command registered', function (): void {
@@ -101,6 +102,29 @@ it('returns null when there is no env file to prepare', function (): void {
     mkdir($dir, 0755, true);
 
     expect(prepareEnvironmentFileIn($dir))->toBeNull();
+
+    rmdir($dir);
+});
+
+it('reports a failure when an artisan command fails', function (): void {
+    $dir = sys_get_temp_dir().'/pollora-artisan-'.uniqid();
+    mkdir($dir, 0755, true);
+
+    $command = newCommandWith('');
+    (new ReflectionProperty($command, 'absolutePath'))->setValue($command, $dir);
+    (new ReflectionProperty($command, 'output'))->setValue($command, new BufferedOutput);
+
+    // `false artisan pollora:install` exits 1, standing in for a failed install.
+    $run = fn (): mixed => (new ReflectionMethod($command, 'runArtisan'))
+        ->invoke($command, 'false', 'pollora:install', 'Running pollora:install...');
+
+    expect($run)->toThrow(RuntimeException::class);
+
+    try {
+        $run();
+    } catch (RuntimeException $runtimeException) {
+        expect($runtimeException->getMessage())->toContain('php artisan pollora:install failed');
+    }
 
     rmdir($dir);
 });

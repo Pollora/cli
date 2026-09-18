@@ -365,13 +365,27 @@ final class NewCommand extends Command
         unset($env['COLORTERM']);
         $process->setEnv($env);
 
+        $hasTty = false;
+
         try {
             $process->setTty(Process::isTtySupported());
+            $hasTty = $process->isTty();
         } catch (RuntimeException) {
             // TTY not supported
         }
 
-        $process->run();
+        // With a TTY the command writes to the terminal itself; without one
+        // its output would be swallowed, so stream it back to the user.
+        $process->run($hasTty ? null : function (string $type, string $line): void {
+            $this->output->write('    '.$line);
+        });
+
+        if (! $process->isSuccessful()) {
+            throw new RuntimeException(sprintf(
+                'php artisan %s failed. Fix the problem above, then run it again from your project directory.',
+                $artisanCommand
+            ));
+        }
 
         return $this;
     }
