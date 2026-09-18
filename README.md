@@ -80,6 +80,13 @@ The command will:
 2. Execute `php artisan pollora:install` for WordPress setup
 3. Optionally initialize a Git repository
 
+By default the CLI installs the latest release **including pre-releases** (currently `v13.32.0-beta.2`), since Pollora's current release line is still in beta. Use `--stable` to install the latest stable release instead, or `--ver` to pin an exact version:
+
+```bash
+pollora new my-site --stable
+pollora new my-site --ver 13.32.0-beta.2
+```
+
 ### With DDEV (recommended)
 
 ```bash
@@ -103,6 +110,8 @@ Your site will be available at `https://my-site.ddev.site`.
 | `--force`, `-f` | Force install even if the directory already exists |
 | `--git` | Initialize a Git repository |
 | `--branch=NAME` | Branch name for the new repository (default: `main`) |
+| `--ver=VERSION` | Install a specific version or constraint (e.g. `13.32.0-beta.2`, `^13.32@beta`) |
+| `--stable` | Install the latest stable release instead of the latest pre-release |
 
 ## Using Pollora commands
 

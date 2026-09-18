@@ -40,6 +40,8 @@ final class NewCommand extends Command
 
     private string $projectVersion = '';
 
+    private bool $preferStable = false;
+
     protected function configure(): void
     {
         $this
@@ -50,7 +52,8 @@ final class NewCommand extends Command
             ->addOption('git', null, InputOption::VALUE_NONE, 'Initialize a Git repository')
             ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'The branch that should be created for a new repository', 'main')
             ->addOption('ddev', null, InputOption::VALUE_NONE, 'Set up the project with DDEV')
-            ->addOption('ver', null, InputOption::VALUE_REQUIRED, 'Install a specific Pollora version (e.g. 13.4.0)');
+            ->addOption('ver', null, InputOption::VALUE_REQUIRED, 'Install a specific Pollora version or constraint (e.g. 13.32.0-beta.2)')
+            ->addOption('stable', null, InputOption::VALUE_NONE, 'Install the latest stable release instead of the latest pre-release');
     }
 
     protected function initialize(InputInterface $input, OutputInterface $output): void
@@ -110,6 +113,7 @@ final class NewCommand extends Command
         $this->initGit = (bool) $this->input->getOption('git');
         $this->useDdev = (bool) $this->input->getOption('ddev');
         $this->projectVersion = (string) ($this->input->getOption('ver') ?? '');
+        $this->preferStable = (bool) $this->input->getOption('stable');
 
         return $this;
     }
@@ -168,7 +172,7 @@ final class NewCommand extends Command
 
         $composer = $this->findComposer();
         $directory = $this->pathIsCwd() ? '.' : $this->relativePath;
-        $commands[] = $composer.' create-project '.self::BASE_REPO.$this->getVersionConstraint().sprintf(' "%s" --remove-vcs --prefer-dist', $directory);
+        $commands[] = $composer.' create-project '.self::BASE_REPO.$this->getVersionConstraint().sprintf(' "%s" --remove-vcs --prefer-dist', $directory).$this->getStabilityOption();
 
         $this->runCommands($commands);
 
@@ -217,7 +221,7 @@ final class NewCommand extends Command
         $this->output->writeln('');
         $this->output->writeln('  <info>Installing Pollora via Composer...</info>');
         $this->runCommands([
-            'ddev composer create-project '.self::BASE_REPO.$this->getVersionConstraint().' --remove-vcs --prefer-dist --no-interaction --no-scripts',
+            'ddev composer create-project '.self::BASE_REPO.$this->getVersionConstraint().' --remove-vcs --prefer-dist --no-interaction --no-scripts'.$this->getStabilityOption(),
         ], workingPath: $this->absolutePath);
 
         if (! $this->wasInstallSuccessful()) {
@@ -449,7 +453,7 @@ final class NewCommand extends Command
 
     /**
      * Get the Composer version constraint for create-project.
-     * Returns empty string for latest, or ':v13.4.0' format for specific version.
+     * Returns empty string for latest, or ':v13.32.0-beta.2' format for specific version.
      */
     private function getVersionConstraint(): string
     {
@@ -457,9 +461,31 @@ final class NewCommand extends Command
             return '';
         }
 
-        $version = ltrim($this->projectVersion, 'v');
+        $version = $this->projectVersion;
 
-        return ':v'.$version;
+        // Exact versions are normalized to the "vX.Y.Z" tag format, anything
+        // else (^13.32@beta, dev-main, ...) is handed to Composer untouched.
+        if (preg_match('/^v?\d+\.\d+\.\d+/', $version) === 1) {
+            $version = 'v'.ltrim($version, 'v');
+        }
+
+        return ':'.$version;
+    }
+
+    /**
+     * Get the Composer stability option for create-project.
+     *
+     * Pollora currently ships pre-releases, so they are installed by default.
+     * --stable restricts the install to the latest stable release, and an
+     * explicit --ver carries its own stability.
+     */
+    private function getStabilityOption(): string
+    {
+        if ($this->preferStable || $this->projectVersion !== '') {
+            return '';
+        }
+
+        return ' --stability=beta';
     }
 
     private function isDdevInstalled(): bool
