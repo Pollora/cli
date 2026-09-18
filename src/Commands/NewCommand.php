@@ -172,7 +172,7 @@ final class NewCommand extends Command
 
         $composer = $this->findComposer();
         $directory = $this->pathIsCwd() ? '.' : $this->relativePath;
-        $commands[] = $composer.' create-project '.self::BASE_REPO.$this->getVersionConstraint().sprintf(' "%s" --remove-vcs --prefer-dist', $directory).$this->getStabilityOption();
+        $commands[] = $composer.' create-project '.self::BASE_REPO.$this->getVersionConstraint().sprintf(' "%s" ', $directory).$this->createProjectFlags();
 
         $this->runCommands($commands);
 
@@ -180,6 +180,11 @@ final class NewCommand extends Command
             throw new RuntimeException('There was a problem installing Pollora!');
         }
 
+        // The skeleton's post-install scripts were skipped, so the .env file
+        // and the application key have to be created here.
+        $this->prepareEnvironmentFile();
+
+        $this->runArtisan('php', 'pollora:env:setup', 'Running pollora:env:setup...');
         $this->runArtisanInstall('php');
 
         return $this;
@@ -217,11 +222,11 @@ final class NewCommand extends Command
         $this->runCommands(['ddev start'], workingPath: $this->absolutePath);
 
         // Install project files without running post-install scripts
-        // (scripts would trigger pollora:env-setup which needs DB credentials)
+        // (scripts would trigger pollora:env:setup which needs DB credentials)
         $this->output->writeln('');
         $this->output->writeln('  <info>Installing Pollora via Composer...</info>');
         $this->runCommands([
-            'ddev composer create-project '.self::BASE_REPO.$this->getVersionConstraint().' --remove-vcs --prefer-dist --no-interaction --no-scripts'.$this->getStabilityOption(),
+            'ddev composer create-project '.self::BASE_REPO.$this->getVersionConstraint().' --no-interaction '.$this->createProjectFlags(),
         ], workingPath: $this->absolutePath);
 
         if (! $this->wasInstallSuccessful()) {
@@ -256,16 +261,9 @@ final class NewCommand extends Command
         $this->output->writeln('');
         $this->output->writeln('  <info>Configuring environment for DDEV...</info>');
 
-        $envFile = $this->absolutePath.'/.env';
+        $envFile = $this->prepareEnvironmentFile();
 
-        if (! is_file($envFile)) {
-            $exampleFile = $this->absolutePath.'/.env.example';
-            if (is_file($exampleFile)) {
-                copy($exampleFile, $envFile);
-            }
-        }
-
-        if (! is_file($envFile)) {
+        if ($envFile === null) {
             return;
         }
 
@@ -292,12 +290,47 @@ final class NewCommand extends Command
             $env = preg_replace($pattern, $replacement, $env) ?? $env;
         }
 
-        // Generate application key directly (without artisan, which would
-        // boot the framework and fail on missing WordPress tables)
-        $key = 'base64:'.base64_encode(random_bytes(32));
-        $env = preg_replace('/^APP_KEY=.*/m', 'APP_KEY='.$key, $env) ?? $env;
-
         file_put_contents($envFile, $env);
+    }
+
+    /**
+     * Create the .env file and its application key when they are missing.
+     *
+     * The key is generated here instead of with artisan key:generate, which
+     * would boot the framework and fail while WordPress is not installed yet.
+     *
+     * @return string|null The path to the .env file, or null when the skeleton
+     *                     ships no .env.example to copy.
+     */
+    private function prepareEnvironmentFile(): ?string
+    {
+        $envFile = $this->absolutePath.'/.env';
+
+        if (! is_file($envFile)) {
+            $exampleFile = $this->absolutePath.'/.env.example';
+
+            if (is_file($exampleFile)) {
+                copy($exampleFile, $envFile);
+            }
+        }
+
+        if (! is_file($envFile)) {
+            return null;
+        }
+
+        $env = file_get_contents($envFile);
+
+        if ($env === false) {
+            return null;
+        }
+
+        if (preg_match('/^APP_KEY=.+$/m', $env) !== 1) {
+            $key = 'base64:'.base64_encode(random_bytes(32));
+            $env = preg_replace('/^APP_KEY=.*/m', 'APP_KEY='.$key, $env) ?? $env;
+            file_put_contents($envFile, $env);
+        }
+
+        return $envFile;
     }
 
     // ──────────────────────────────────────────────
@@ -306,15 +339,21 @@ final class NewCommand extends Command
 
     private function runArtisanInstall(string $phpPrefix): self
     {
+        return $this->runArtisan($phpPrefix, 'pollora:install', 'Running pollora:install...');
+    }
+
+    /**
+     * Run an artisan command with a terminal attached, so that its prompts work.
+     */
+    private function runArtisan(string $phpPrefix, string $artisanCommand, string $message): self
+    {
         $this->output->writeln('');
-        $this->output->writeln('  <info>Running pollora:install...</info>');
+        $this->output->writeln('  <info>'.$message.'</info>');
         $this->output->writeln('');
 
         $isDdev = str_starts_with($phpPrefix, 'ddev');
 
-        $command = $isDdev
-            ? 'ddev exec php artisan pollora:install'
-            : $phpPrefix.' artisan pollora:install';
+        $command = ($isDdev ? 'ddev exec php' : $phpPrefix).' artisan '.$artisanCommand;
 
         $process = Process::fromShellCommandline($command, $this->absolutePath);
         $process->setTimeout(null);
@@ -470,6 +509,19 @@ final class NewCommand extends Command
         }
 
         return ':'.$version;
+    }
+
+    /**
+     * Composer flags shared by both create-project invocations.
+     *
+     * --no-scripts keeps the skeleton's post-install hooks from running
+     * pollora:env:setup and pollora:install on their own: driven from here
+     * they get no terminal, their prompts fail, and Composer aborts the
+     * install. The CLI runs them itself once the project is in place.
+     */
+    private function createProjectFlags(): string
+    {
+        return '--remove-vcs --prefer-dist --no-scripts'.$this->getStabilityOption();
     }
 
     /**

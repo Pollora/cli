@@ -76,9 +76,11 @@ pollora new my-site
 ```
 
 The command will:
-1. Run `composer create-project pollora/pollora`
-2. Execute `php artisan pollora:install` for WordPress setup
-3. Optionally initialize a Git repository
+1. Run `composer create-project pollora/pollora` (without the skeleton's post-install scripts)
+2. Create the `.env` file and its application key
+3. Execute `php artisan pollora:env:setup` to configure the site URL and database
+4. Execute `php artisan pollora:install` for WordPress setup
+5. Optionally initialize a Git repository
 
 By default the CLI installs the latest release **including pre-releases** (currently `v13.32.0-beta.2`), since Pollora's current release line is still in beta. Use `--stable` to install the latest stable release instead, or `--ver` to pin an exact version:
 

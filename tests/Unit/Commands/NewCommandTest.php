@@ -70,6 +70,41 @@ it('installs pre-releases by default and stable releases with --stable', functio
         ->and(stabilityOptionFor(version: '13.32.0-beta.2', stable: false))->toBe('');
 });
 
+it('skips the skeleton post-install scripts and drives them itself', function (): void {
+    expect(createProjectFlagsFor(version: '', stable: false))
+        ->toBe('--remove-vcs --prefer-dist --no-scripts --stability=beta')
+        ->and(createProjectFlagsFor(version: '', stable: true))
+        ->toBe('--remove-vcs --prefer-dist --no-scripts');
+});
+
+it('creates the env file with an application key and leaves an existing key alone', function (): void {
+    $dir = sys_get_temp_dir().'/pollora-env-'.uniqid();
+    mkdir($dir, 0755, true);
+    file_put_contents($dir.'/.env.example', "APP_NAME=Pollora\nAPP_KEY=\nDB_CONNECTION=sqlite\n");
+
+    expect(prepareEnvironmentFileIn($dir))->toBe($dir.'/.env');
+
+    $key = (string) preg_replace('/^.*APP_KEY=(.*)$.*/ms', '$1', (string) file_get_contents($dir.'/.env'));
+    expect($key)->toStartWith('base64:');
+
+    // Running again must not rotate the key of an already configured project.
+    prepareEnvironmentFileIn($dir);
+    expect(file_get_contents($dir.'/.env'))->toContain('APP_KEY='.$key);
+
+    unlink($dir.'/.env');
+    unlink($dir.'/.env.example');
+    rmdir($dir);
+});
+
+it('returns null when there is no env file to prepare', function (): void {
+    $dir = sys_get_temp_dir().'/pollora-env-'.uniqid();
+    mkdir($dir, 0755, true);
+
+    expect(prepareEnvironmentFileIn($dir))->toBeNull();
+
+    rmdir($dir);
+});
+
 it('normalizes exact versions and passes constraints through', function (): void {
     expect(versionConstraintFor(''))->toBe('')
         ->and(versionConstraintFor('13.32.0-beta.2'))->toBe(':v13.32.0-beta.2')
@@ -137,4 +172,26 @@ function stabilityOptionFor(string $version, bool $stable): string
     $method = new ReflectionMethod($command, 'getStabilityOption');
 
     return (string) $method->invoke($command);
+}
+
+function createProjectFlagsFor(string $version, bool $stable): string
+{
+    $command = newCommandWith($version, $stable);
+    $method = new ReflectionMethod($command, 'createProjectFlags');
+
+    return (string) $method->invoke($command);
+}
+
+function prepareEnvironmentFileIn(string $directory): ?string
+{
+    $command = newCommandWith('');
+    $property = new ReflectionProperty($command, 'absolutePath');
+    $property->setValue($command, $directory);
+
+    $method = new ReflectionMethod($command, 'prepareEnvironmentFile');
+
+    /** @var string|null $path */
+    $path = $method->invoke($command);
+
+    return $path;
 }
