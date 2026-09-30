@@ -343,6 +343,21 @@ final class NewCommand extends Command
     }
 
     /**
+     * The shell command that runs an artisan command in the new project.
+     *
+     * `pollora new --no-interaction` passes the flag on: the artisan command
+     * gets a terminal from here, so without it pollora:install would prompt
+     * anyway — or, with no terminal at all, fall back to its defaults.
+     */
+    private function artisanCommandLine(string $phpPrefix, string $artisanCommand): string
+    {
+        $php = str_starts_with($phpPrefix, 'ddev') ? 'ddev exec php' : $phpPrefix;
+        $flags = $this->input->isInteractive() ? '' : ' --no-interaction';
+
+        return $php.' artisan '.$artisanCommand.$flags;
+    }
+
+    /**
      * Run an artisan command with a terminal attached, so that its prompts work.
      */
     private function runArtisan(string $phpPrefix, string $artisanCommand, string $message): self
@@ -351,11 +366,7 @@ final class NewCommand extends Command
         $this->output->writeln('  <info>'.$message.'</info>');
         $this->output->writeln('');
 
-        $isDdev = str_starts_with($phpPrefix, 'ddev');
-
-        $command = ($isDdev ? 'ddev exec php' : $phpPrefix).' artisan '.$artisanCommand;
-
-        $process = Process::fromShellCommandline($command, $this->absolutePath);
+        $process = Process::fromShellCommandline($this->artisanCommandLine($phpPrefix, $artisanCommand), $this->absolutePath);
         $process->setTimeout(null);
 
         // Set TERM=dumb on the HOST side to prevent the terminal emulator

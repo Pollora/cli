@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Pollora\Cli\Application;
 use Pollora\Cli\Commands\NewCommand;
+use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -113,6 +114,7 @@ it('reports a failure when an artisan command fails', function (): void {
     $command = newCommandWith('');
     (new ReflectionProperty($command, 'absolutePath'))->setValue($command, $dir);
     (new ReflectionProperty($command, 'output'))->setValue($command, new BufferedOutput);
+    (new ReflectionProperty($command, 'input'))->setValue($command, new ArrayInput([]));
 
     // `false artisan pollora:install` exits 1, standing in for a failed install.
     $run = fn (): mixed => (new ReflectionMethod($command, 'runArtisan'))
@@ -219,3 +221,17 @@ function prepareEnvironmentFileIn(string $directory): ?string
 
     return $path;
 }
+
+it('passes --no-interaction on to artisan when it was given one', function (bool $interactive, string $expected): void {
+    $command = newCommandWith('');
+    $input = new ArrayInput([]);
+    $input->setInteractive($interactive);
+    (new ReflectionProperty($command, 'input'))->setValue($command, $input);
+
+    $line = (new ReflectionMethod($command, 'artisanCommandLine'))->invoke($command, 'ddev exec php', 'pollora:install');
+
+    expect($line)->toBe($expected);
+})->with([
+    'interactive' => [true, 'ddev exec php artisan pollora:install'],
+    'no interaction' => [false, 'ddev exec php artisan pollora:install --no-interaction'],
+]);
