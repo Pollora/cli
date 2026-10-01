@@ -12,7 +12,9 @@
 
 ## About Pollora CLI
 
-The Pollora CLI is a command-line tool for creating and managing [Pollora](https://github.com/Pollora/framework) projects. It provides interactive scaffolding with optional DDEV integration, and acts as an intelligent proxy to framework commands when used inside a project.
+The Pollora CLI is a command-line tool for creating and managing [Pollora](https://pollora.dev) projects. It provides interactive scaffolding with optional DDEV integration, and acts as an intelligent proxy to framework commands when used inside a project.
+
+The full documentation, including the [installation guide](https://pollora.dev/getting-started/installation/), lives at **[pollora.dev](https://pollora.dev)**.
 
 ## Installation
 
