@@ -1,18 +1,17 @@
 <p align="center">
-  <a href="https://github.com/Pollora/cli">
-    <img src="resources/images/pollora-logo.svg" width="400" alt="Pollora">
+  <a href="https://pollora.dev">
+    <img src="https://raw.githubusercontent.com/Pollora/.github/main/brand/banners/cli.png" width="100%" alt="Pollora CLI: create and manage Pollora projects">
   </a>
 </p>
 
 <p align="center">
   <a href="https://packagist.org/packages/pollora/cli"><img src="https://img.shields.io/packagist/v/pollora/cli" alt="Latest Stable Version"></a>
   <a href="https://packagist.org/packages/pollora/cli"><img src="https://img.shields.io/packagist/dt/pollora/cli" alt="Total Downloads"></a>
-  <a href="https://packagist.org/packages/pollora/cli"><img src="https://img.shields.io/packagist/l/pollora/cli" alt="License"></a>
+  <a href="https://github.com/Pollora/cli/actions/workflows/ci.yml"><img src="https://github.com/Pollora/cli/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Pollora/cli" alt="License"></a>
 </p>
 
-## About Pollora CLI
-
-The Pollora CLI is a command-line tool for creating and managing [Pollora](https://pollora.dev) projects. It provides interactive scaffolding with optional DDEV integration, and acts as an intelligent proxy to framework commands when used inside a project.
+The Pollora CLI creates [Pollora](https://pollora.dev) projects, the Laravel framework for WordPress, in one command: `pollora new my-site` installs the skeleton, writes the `.env`, sets up WordPress and, if you want, a DDEV environment. Inside a project, `pollora <command>` runs the matching `php artisan pollora:<command>`, in the DDEV container when there is one.
 
 The full documentation, including the [installation guide](https://pollora.dev/getting-started/installation/), lives at **[pollora.dev](https://pollora.dev)**.
 
@@ -84,11 +83,11 @@ The command will:
 4. Execute `php artisan pollora:install` for WordPress setup
 5. Optionally initialize a Git repository
 
-By default the CLI installs the latest release **including pre-releases** (currently `v13.32.0-beta.2`), since Pollora's current release line is still in beta. Use `--stable` to install the latest stable release instead, or `--ver` to pin an exact version:
+By default the CLI asks Composer for the newest skeleton release, pre-releases included (`--stability=beta`). The framework's current line is stable, so this installs the latest stable release; `--stable` guarantees you never get a pre-release, and `--ver` pins an exact version or constraint:
 
 ```bash
 pollora new my-site --stable
-pollora new my-site --ver 13.32.0-beta.2
+pollora new my-site --ver 13.35.0
 ```
 
 ### With DDEV (recommended)
@@ -101,8 +100,7 @@ When the `--ddev` flag is passed (or selected interactively), the CLI will:
 1. Configure DDEV (WordPress, PHP 8.4, MariaDB 10.11)
 2. Start the DDEV environment
 3. Install the project via `ddev composer create-project`
-4. Run `pollora:install` inside the container
-5. Publish the `./pollora` binary and `ddev pollora` command
+4. Run `pollora:env:setup` and `pollora:install` inside the container
 
 Your site will be available at `https://my-site.ddev.site`.
 
@@ -114,51 +112,23 @@ Your site will be available at `https://my-site.ddev.site`.
 | `--force`, `-f` | Force install even if the directory already exists |
 | `--git` | Initialize a Git repository |
 | `--branch=NAME` | Branch name for the new repository (default: `main`) |
-| `--ver=VERSION` | Install a specific version or constraint (e.g. `13.32.0-beta.2`, `^13.32@beta`) |
-| `--stable` | Install the latest stable release instead of the latest pre-release |
+| `--ver=VERSION` | Install a specific version or constraint (e.g. `13.35.0`, `^13.35`) |
+| `--stable` | Install the latest stable release only, never a pre-release |
 
 ## Using Pollora commands
-
-### Inside a Pollora project
 
 When you run `pollora` inside a directory that contains both `artisan` and `vendor/pollora/framework`, the CLI acts as a **proxy** and delegates commands to `php artisan pollora:{command}`:
 
 ```bash
 cd my-site
 
-pollora status            # => php artisan pollora:status
-pollora make-plugin Foo   # => php artisan pollora:make-plugin Foo
-pollora make-theme starter # => php artisan pollora:make-theme starter
+pollora status               # => php artisan pollora:status
+pollora make:plugin Foo      # => php artisan pollora:make:plugin Foo
+pollora make:theme starter   # => php artisan pollora:make:theme starter
+pollora doctor               # => php artisan pollora:doctor
 ```
 
-### With DDEV
-
-If you set up your project with `--ddev`, a custom `ddev pollora` command is available:
-
-```bash
-ddev pollora status
-ddev pollora make-plugin Foo
-ddev pollora list
-```
-
-### With the local `./pollora` binary
-
-The framework provides a dedicated `./pollora` binary (published via `vendor:publish --tag=pollora-binary`) that shows only Pollora-related commands with short names:
-
-```bash
-./pollora list
-
-# Available commands:
-#   install        Install and configure WordPress
-#   status         Display Pollora framework status
-#   make-plugin    Generate plugin structure
-#   make-theme     Generate theme structure
-#   make-block     Create a new Gutenberg block
-#   make-posttype  Create a new custom post type
-#   ...
-```
-
-The original `php artisan pollora:*` signatures continue to work as aliases.
+In a project with a `.ddev` directory, the same commands run in the container (`ddev exec php artisan pollora:{command}`). `new`, `version`, `self-update`, `list`, `help` and `completion` always stay with the CLI.
 
 ## Updating
 
@@ -186,7 +156,7 @@ This runs `composer global update pollora/cli` under the hood. You can also use 
 
 ## Requirements
 
-- PHP >= 8.2
+- PHP 8.2+ for the CLI itself (the project it creates needs PHP 8.4+)
 - Composer 2.x
 - DDEV (optional, for `--ddev` mode)
 
@@ -201,6 +171,10 @@ composer test:refacto      # Check refactoring rules with Rector
 composer test:type-coverage # Check type coverage (>= 98%)
 ```
 
+## Contributing
+
+Contributions are welcome: see the [contributing guide](https://github.com/Pollora/.github/blob/main/CONTRIBUTING.md). Report security issues privately, as described in the [security policy](https://github.com/Pollora/.github/blob/main/SECURITY.md).
+
 ## License
 
-Pollora CLI is open-sourced software licensed under the [MIT license](LICENSE).
+Pollora CLI is open-source software licensed under the [MIT license](LICENSE). © [RuBee group](https://rubee.group)
