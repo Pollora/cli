@@ -439,7 +439,7 @@ final class NewCommand extends Command
             $this->output->writeln(sprintf('  Enter your project directory with <comment>cd %s</comment>', $this->relativePath));
             $this->output->writeln('  Your site is available at <info>https://'.$this->relativePath.'.ddev.site</info>');
             $this->output->writeln('');
-            $this->output->writeln('  Use <comment>ddev pollora</comment> to run Pollora commands');
+            $this->output->writeln('  Run Pollora commands from the project directory with <comment>pollora</comment> (e.g. <comment>pollora status</comment>): they run inside DDEV');
             $this->output->writeln('  Use <comment>ddev launch</comment> to open your site in a browser');
         } else {
             $this->output->writeln(sprintf('  Enter your project directory with <comment>cd %s</comment>', $this->relativePath));
