@@ -12,6 +12,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
 
 use function Laravel\Prompts\confirm;
@@ -225,6 +226,9 @@ final class NewCommand extends Command
         // (scripts would trigger pollora:env:setup which needs DB credentials)
         $this->output->writeln('');
         $this->output->writeln('  <info>Installing Pollora via Composer...</info>');
+        // macOS Finder may create .DS_Store while DDEV is starting. DDEV's
+        // composer create-project only accepts an essentially empty directory.
+        $this->removeDdevBlockingMetadata();
         $this->runCommands([
             'ddev composer create-project '.self::BASE_REPO.$this->getVersionConstraint().' --no-interaction '.$this->createProjectFlags(),
         ], workingPath: $this->absolutePath);
@@ -254,6 +258,16 @@ final class NewCommand extends Command
         ], workingPath: $this->absolutePath, disableOutput: true);
 
         return $this;
+    }
+
+    private function removeDdevBlockingMetadata(): void
+    {
+        // Only remove Finder's disposable metadata file, never project files.
+        $metadataFile = $this->absolutePath.'/.DS_Store';
+
+        if (is_file($metadataFile) && ! unlink($metadataFile)) {
+            throw new RuntimeException('Could not remove .DS_Store before DDEV Composer installation.');
+        }
     }
 
     private function configureDdevEnv(): void
@@ -567,9 +581,6 @@ final class NewCommand extends Command
 
     private function isDdevInstalled(): bool
     {
-        $process = new Process(['ddev', 'version']);
-        $process->run();
-
-        return $process->isSuccessful();
+        return (new ExecutableFinder)->find('ddev') !== null;
     }
 }
