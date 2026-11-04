@@ -6,6 +6,7 @@ namespace Pollora\Cli\Commands;
 
 use Pollora\Cli\Concerns\ConfiguresPrompts;
 use Pollora\Cli\Concerns\RunsCommands;
+use Pollora\Cli\Exceptions\InstallationException;
 use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -122,11 +123,11 @@ final class NewCommand extends Command
     private function validateArguments(): self
     {
         if (! $this->force && $this->applicationExists()) {
-            throw new RuntimeException('Application already exists!');
+            throw InstallationException::applicationExists();
         }
 
         if ($this->force && $this->pathIsCwd()) {
-            throw new RuntimeException('Cannot use --force option when using current directory for installation!');
+            throw InstallationException::forceInCurrentDirectory();
         }
 
         return $this;
@@ -178,7 +179,7 @@ final class NewCommand extends Command
         $this->runCommands($commands);
 
         if (! $this->wasInstallSuccessful()) {
-            throw new RuntimeException('There was a problem installing Pollora!');
+            throw InstallationException::installFailed();
         }
 
         // The skeleton's post-install scripts were skipped, so the .env file
@@ -198,7 +199,7 @@ final class NewCommand extends Command
     private function installWithDdev(): self
     {
         if (! $this->isDdevInstalled()) {
-            throw new RuntimeException('DDEV is not installed. Please install it from https://ddev.readthedocs.io');
+            throw InstallationException::ddevMissing();
         }
 
         $this->output->writeln('');
@@ -234,7 +235,7 @@ final class NewCommand extends Command
         ], workingPath: $this->absolutePath);
 
         if (! $this->wasInstallSuccessful()) {
-            throw new RuntimeException('There was a problem installing Pollora via DDEV!');
+            throw InstallationException::ddevInstallFailed();
         }
 
         // Configure .env with DDEV database credentials before running install
@@ -266,7 +267,7 @@ final class NewCommand extends Command
         $metadataFile = $this->absolutePath.'/.DS_Store';
 
         if (is_file($metadataFile) && ! unlink($metadataFile)) {
-            throw new RuntimeException('Could not remove .DS_Store before DDEV Composer installation.');
+            throw InstallationException::metadataFileNotRemovable();
         }
     }
 
@@ -406,10 +407,7 @@ final class NewCommand extends Command
         });
 
         if (! $process->isSuccessful()) {
-            throw new RuntimeException(sprintf(
-                'php artisan %s failed. Fix the problem above, then run it again from your project directory.',
-                $artisanCommand
-            ));
+            throw InstallationException::artisanFailed($artisanCommand);
         }
 
         return $this;

@@ -1,0 +1,12 @@
+{
+    "profile": "core",
+    "mode": "enforce",
+    "allow_laravel": [
+        "laravel/prompts"
+    ],
+    "ratchet": {
+        "phpstan_level": 8,
+        "phpstan_baseline": 0,
+        "coverage": 36.86
+    }
+}

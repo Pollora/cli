@@ -66,7 +66,7 @@ final class Application extends SymfonyApplication
 
             $cmd = new Command($name);
             $cmd->setDescription($description);
-            $this->add($cmd);
+            $this->addCommand($cmd);
         }
     }
 }
