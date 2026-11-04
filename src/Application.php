@@ -66,6 +66,7 @@ final class Application extends SymfonyApplication
 
             $cmd = new Command($name);
             $cmd->setDescription($description);
+            // @phpstan-ignore method.deprecated (addCommand() only exists since Symfony 7.4; composer.json allows ^7.0)
             $this->add($cmd);
         }
     }
