@@ -1,0 +1,8 @@
+{
+    "version": 1,
+    "surface": {
+        "command:new": "command",
+        "command:self-update": "command",
+        "command:version": "command"
+    }
+}
