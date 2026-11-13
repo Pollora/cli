@@ -5,18 +5,9 @@
         "laravel/prompts"
     ],
     "allow_commands": [
-        {
-            "command": "new",
-            "reason": "the installer is named for the tool, like laravel new; renaming it would change the public API of the CLI"
-        },
-        {
-            "command": "self-update",
-            "reason": "the command is named for the tool, like composer self-update; renaming it would change the public API of the CLI"
-        },
-        {
-            "command": "version",
-            "reason": "the command is named for the tool; renaming it would change the public API of the CLI"
-        }
+        { "command": "new", "reason": "the installer is named for the tool, like laravel new; renaming it would change the public API of the CLI" },
+        { "command": "self-update", "reason": "the command is named for the tool, like composer self-update; renaming it would change the public API of the CLI" },
+        { "command": "version", "reason": "the command is named for the tool; renaming it would change the public API of the CLI" }
     ],
     "ratchet": {
         "phpstan_level": 8,
