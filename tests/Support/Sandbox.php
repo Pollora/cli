@@ -29,6 +29,9 @@ final class Sandbox
     /** @var array<string, mixed> */
     private array $originalServer = [];
 
+    /** @var array<string, mixed> */
+    private array $originalSuperEnv = [];
+
     public function __construct()
     {
         $this->root = realpath(sys_get_temp_dir()).'/pollora-cli-'.bin2hex(random_bytes(6));
@@ -61,9 +64,16 @@ final class Sandbox
             $this->originalServer[$name] = $_SERVER[$name] ?? null;
         }
 
-        // Symfony Process only passes on the variables that $_SERVER also knows.
+        if (! array_key_exists($name, $this->originalSuperEnv)) {
+            $this->originalSuperEnv[$name] = $_ENV[$name] ?? null;
+        }
+
+        // Symfony Process builds the environment of a child from the variables that $_SERVER also knows,
+        // then lets $_ENV override them: $_ENV is empty with the php.ini of macOS (variables_order GPCS)
+        // and filled on Linux, where it would bring back the original PATH. Both are set.
         putenv($name.'='.$value);
         $_SERVER[$name] = $value;
+        $_ENV[$name] = $value;
     }
 
     /**
@@ -126,6 +136,14 @@ SH;
                 unset($_SERVER[$name]);
             } else {
                 $_SERVER[$name] = $value;
+            }
+        }
+
+        foreach ($this->originalSuperEnv as $name => $value) {
+            if ($value === null) {
+                unset($_ENV[$name]);
+            } else {
+                $_ENV[$name] = $value;
             }
         }
 
