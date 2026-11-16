@@ -47,6 +47,8 @@ final class Sandbox
         $this->env('FAKE_LOG', $this->log);
         $this->env('FAKE_FAIL_ON', '');
         $this->env('FAKE_NO_INSTALL', '');
+        $this->env('FAKE_OMIT', '');
+        $this->env('FAKE_ECHO', '');
         $this->env('HTTPS_PROXY', 'http://127.0.0.1:1');
         $this->env('HOME', $this->root.'/home');
         $this->env('PATH', $this->bin.':'.getenv('PATH'));
@@ -97,14 +99,16 @@ final class Sandbox
     public function fakeTools(): void
     {
         $skeleton = <<<'SH'
-mkdir -p "$1/vendor"
-touch "$1/artisan"
-echo '{}' > "$1/composer.json"
+mkdir -p "$1"
+[ "$FAKE_OMIT" = vendor ] || mkdir -p "$1/vendor"
+[ "$FAKE_OMIT" = artisan ] || touch "$1/artisan"
+[ "$FAKE_OMIT" = json ] || echo '{}' > "$1/composer.json"
 [ -n "$FAKE_NO_ENV" ] || printf 'APP_KEY=\n#DB_HOST=127.0.0.1\n# DB_PASSWORD=\nAPP_URL=http://localhost\n' > "$1/.env.example"
 SH;
 
         $guard = <<<'SH'
 echo "$(basename "$0") $*" >> "$FAKE_LOG"
+[ -z "$FAKE_ECHO" ] || echo "out: $(basename "$0") $*"
 if [ -n "$FAKE_FAIL_ON" ]; then
   case "$*" in *"$FAKE_FAIL_ON"*) exit 1;; esac
 fi

@@ -10,8 +10,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
 
 // The lock file sits four levels above src/ and the package composer.json one
 // level above: the overlay serves them from memory so no real file is involved.
-const LOCK_SUFFIX = '/../../../../composer.lock';
-const COMPOSER_SUFFIX = '/../composer.json';
+const LOCK_SUFFIX = '/src/../../../../composer.lock';
+const COMPOSER_SUFFIX = '/src/../composer.json';
 
 afterEach(function (): void {
     FileOverlay::uninstall();
