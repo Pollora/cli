@@ -18,7 +18,7 @@ final class FileOverlay
     /** @var resource|null */
     public $context;
 
-    /** @var array<string, string|false|null> suffix => content, false = unreadable, null = absent */
+    /** @var array<string, string|false|null|\Closure> suffix => content, false = unreadable, null = absent, closure = content computed at each open */
     private static array $files = [];
 
     /** @var resource|null */
@@ -31,13 +31,31 @@ final class FileOverlay
     private bool $virtual = false;
 
     /**
-     * @param  array<string, string|false|null>  $files  suffix => content; false = exists but cannot be read, null = does not exist
+     * @param  array<string, string|false|null|\Closure>  $files  suffix => content; false = exists but cannot be read, null = does not exist, closure = returns the content (or false) at each open
      */
     public static function install(array $files): void
     {
+        self::loadSources();
         self::$files = $files;
         stream_wrapper_unregister('file');
         stream_wrapper_register('file', self::class);
+    }
+
+    /**
+     * Load every class of the package while the real "file" wrapper is still
+     * in place: a class first loaded through this overlay (or after it is
+     * removed) would bypass any wrapper that rewrites the source, such as the
+     * one of the mutation runner, and the tests would no longer see its changes.
+     */
+    private static function loadSources(): void
+    {
+        $src = dirname(__DIR__, 2).'/src';
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($src, \FilesystemIterator::SKIP_DOTS));
+
+        foreach ($files as $file) {
+            $class = 'Pollora\\Cli\\'.str_replace('/', '\\', substr((string) $file, strlen($src) + 1, -4));
+            class_exists($class);
+        }
     }
 
     public static function uninstall(): void
@@ -49,7 +67,7 @@ final class FileOverlay
     }
 
     /**
-     * @return array{0: bool, 1: string|false|null}
+     * @return array{0: bool, 1: string|false|null|\Closure}
      */
     private function match(string $path): array
     {
@@ -82,6 +100,10 @@ final class FileOverlay
         [$matched, $content] = $this->match($path);
 
         if ($matched) {
+            if ($content instanceof \Closure) {
+                $content = $content();
+            }
+
             if (! is_string($content)) {
                 return false;
             }
@@ -147,6 +169,11 @@ final class FileOverlay
     public function stream_set_option(): bool
     {
         return false;
+    }
+
+    public function mkdir(string $path, int $mode, int $options): bool
+    {
+        return (bool) $this->native(static fn (): bool => mkdir($path, $mode, (bool) ($options & STREAM_MKDIR_RECURSIVE)));
     }
 
     /**
